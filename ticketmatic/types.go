@@ -132,6 +132,10 @@ type AddRefunds struct {
 // Full documentation can be found in the Ticketmatic Help Center
 // (https://www.ticketmatic.com/docs/api/types/AddTickets).
 type AddTickets struct {
+	// If this is set adding the tickets will only succeed if all tickets can be placed
+	// on a single row
+	Onlysinglerow bool `json:"onlysinglerow,omitempty"`
+
 	// Ticket information
 	Tickets []*CreateTicket `json:"tickets"`
 }
@@ -151,6 +155,10 @@ type AddVoucherCodes struct {
 
 	// Number of codes to create
 	Count int64 `json:"count"`
+
+	// Whether or not to reactivate and update the expiry of already existing
+	// vouchercodes.
+	Update bool `json:"update,omitempty"`
 }
 
 // Address, used for physical deliveries and contact details.
@@ -1126,8 +1134,6 @@ type CustomField struct {
 
 	// Human-readable description for the custom field. Will be visible for end-users
 	// when edittype checkout is used
-	//
-	// Note: Not set when retrieving a list of custom fields.
 	Description string `json:"description"`
 
 	// Type of editing that is allowed for the custom field. Links to systemtype
@@ -1138,15 +1144,15 @@ type CustomField struct {
 	Fieldtypeid int64 `json:"fieldtypeid"`
 
 	// The identifier for the custom field. Should contain only alphanumeric characters
-	// and no whitespace, max length is 20 characters. The custom field will be
+	// and no whitespace, max length is 30 characters. The custom field will be
 	// available in the api and the public data model as c_
 	Key string `json:"key"`
 
 	// Indicated whether the field is manually sortable
 	Manualsort bool `json:"manualsort"`
 
-	// Indicates whether the field is required
-	Required bool `json:"required"`
+	// Indicates where the custom field is required. Links to systemtype category 30xxx
+	Requiredtypeid int64 `json:"requiredtypeid"`
 
 	// Whether or not this item is archived
 	//
@@ -1370,15 +1376,24 @@ type DeliveryScenario struct {
 	// Note: Not set when retrieving a list of delivery scenarios.
 	Availability *DeliveryscenarioAvailability `json:"availability,omitempty"`
 
+	// The delivery status the order will transition to when the trigger occurs.
+	Deliverystatusaftertrigger int64 `json:"deliverystatusaftertrigger"`
+
 	// An internal description field. Will not be shown to customers.
 	Internalremark string `json:"internalremark,omitempty"`
 
 	// A physical address is required
 	Needsaddress bool `json:"needsaddress"`
 
-	// The ID of the order mail template that will be used for sending out this
-	// delivery scenario. Can be 0 to indicate that no mail should be sent
+	// The ID of the order mail template that will be used for sending out when
+	// changing to delivery state 'delivered'. Can be 0 to indicate that no mail should
+	// be sent
 	OrdermailtemplateidDelivery int64 `json:"ordermailtemplateid_delivery"`
+
+	// The ID of the order mail template that will be used for sending out when
+	// changing to delivery state 'delivery started'. Can be 0 to indicate that no mail
+	// should be sent
+	OrdermailtemplateidDeliverystarted int64 `json:"ordermailtemplateid_deliverystarted"`
 
 	// A short description of the deilvery scenario. Will be shown to customers.
 	Shortdescription string `json:"shortdescription"`
@@ -1449,35 +1464,39 @@ func (o *DeliveryScenario) UnmarshalJSON(data []byte) error {
 func (o *DeliveryScenario) MarshalJSON() ([]byte, error) {
 	// Use a custom type to avoid the custom marshaller, marshal the data.
 	type tmp struct {
-		Id                          int64                         `json:"id,omitempty"`
-		Typeid                      int64                         `json:"typeid,omitempty"`
-		Name                        string                        `json:"name,omitempty"`
-		Allowetickets               int64                         `json:"allowetickets,omitempty"`
-		Availability                *DeliveryscenarioAvailability `json:"availability,omitempty"`
-		Internalremark              string                        `json:"internalremark,omitempty"`
-		Needsaddress                bool                          `json:"needsaddress,omitempty"`
-		OrdermailtemplateidDelivery int64                         `json:"ordermailtemplateid_delivery,omitempty"`
-		Shortdescription            string                        `json:"shortdescription,omitempty"`
-		Visibility                  string                        `json:"visibility,omitempty"`
-		Isarchived                  bool                          `json:"isarchived,omitempty"`
-		Createdts                   Time                          `json:"createdts,omitempty"`
-		Lastupdatets                Time                          `json:"lastupdatets,omitempty"`
+		Id                                 int64                         `json:"id,omitempty"`
+		Typeid                             int64                         `json:"typeid,omitempty"`
+		Name                               string                        `json:"name,omitempty"`
+		Allowetickets                      int64                         `json:"allowetickets,omitempty"`
+		Availability                       *DeliveryscenarioAvailability `json:"availability,omitempty"`
+		Deliverystatusaftertrigger         int64                         `json:"deliverystatusaftertrigger,omitempty"`
+		Internalremark                     string                        `json:"internalremark,omitempty"`
+		Needsaddress                       bool                          `json:"needsaddress,omitempty"`
+		OrdermailtemplateidDelivery        int64                         `json:"ordermailtemplateid_delivery,omitempty"`
+		OrdermailtemplateidDeliverystarted int64                         `json:"ordermailtemplateid_deliverystarted,omitempty"`
+		Shortdescription                   string                        `json:"shortdescription,omitempty"`
+		Visibility                         string                        `json:"visibility,omitempty"`
+		Isarchived                         bool                          `json:"isarchived,omitempty"`
+		Createdts                          Time                          `json:"createdts,omitempty"`
+		Lastupdatets                       Time                          `json:"lastupdatets,omitempty"`
 	}
 
 	obj := tmp{
-		Id:                          o.Id,
-		Typeid:                      o.Typeid,
-		Name:                        o.Name,
-		Allowetickets:               o.Allowetickets,
-		Availability:                o.Availability,
-		Internalremark:              o.Internalremark,
-		Needsaddress:                o.Needsaddress,
-		OrdermailtemplateidDelivery: o.OrdermailtemplateidDelivery,
-		Shortdescription:            o.Shortdescription,
-		Visibility:                  o.Visibility,
-		Isarchived:                  o.Isarchived,
-		Createdts:                   o.Createdts,
-		Lastupdatets:                o.Lastupdatets,
+		Id:                                 o.Id,
+		Typeid:                             o.Typeid,
+		Name:                               o.Name,
+		Allowetickets:                      o.Allowetickets,
+		Availability:                       o.Availability,
+		Deliverystatusaftertrigger:         o.Deliverystatusaftertrigger,
+		Internalremark:                     o.Internalremark,
+		Needsaddress:                       o.Needsaddress,
+		OrdermailtemplateidDelivery:        o.OrdermailtemplateidDelivery,
+		OrdermailtemplateidDeliverystarted: o.OrdermailtemplateidDeliverystarted,
+		Shortdescription:                   o.Shortdescription,
+		Visibility:                         o.Visibility,
+		Isarchived:                         o.Isarchived,
+		Createdts:                          o.Createdts,
+		Lastupdatets:                       o.Lastupdatets,
 	}
 	data, err := json.Marshal(obj)
 	if err != nil {
@@ -4910,6 +4929,9 @@ type OrderTicket struct {
 	// The id of the product this ticket is linked to
 	Bundleid int64 `json:"bundleid"`
 
+	// The timestamp of the last delivery of this ticket
+	Deliveredts Time `json:"deliveredts"`
+
 	// Event id
 	Eventid int64 `json:"eventid"`
 
@@ -4918,6 +4940,12 @@ type OrderTicket struct {
 
 	// Pricetype id
 	Pricetypeid int64 `json:"pricetypeid"`
+
+	// Seat coordinate - x
+	Seatcachedvisualx float64 `json:"seatcachedvisualx"`
+
+	// Seat coordinate - y
+	Seatcachedvisualy float64 `json:"seatcachedvisualy"`
 
 	// Description of the ticket
 	Seatdescription string `json:"seatdescription"`
@@ -6116,6 +6144,12 @@ type Product struct {
 	// Description for the product
 	Description string `json:"description,omitempty"`
 
+	// The customfield that is used to group the option bundle in the UI (websales and
+	// backoffice)
+	//
+	// Note: Not set when retrieving a list of products.
+	Groupbycustomfield int64 `json:"groupbycustomfield,omitempty"`
+
 	// Instancevalues control the price for a product and for non simple products it
 	// also controls the content of the product. All products should have a default
 	// instancevalue and a set of exceptions (if there are any). If no specific
@@ -6230,6 +6264,7 @@ func (o *Product) MarshalJSON() ([]byte, error) {
 		Name                 string                 `json:"name,omitempty"`
 		Code                 string                 `json:"code,omitempty"`
 		Description          string                 `json:"description,omitempty"`
+		Groupbycustomfield   int64                  `json:"groupbycustomfield,omitempty"`
 		Instancevalues       *ProductInstancevalues `json:"instancevalues,omitempty"`
 		Maxadditionaltickets int64                  `json:"maxadditionaltickets,omitempty"`
 		Printtickets         bool                   `json:"printtickets,omitempty"`
@@ -6252,6 +6287,7 @@ func (o *Product) MarshalJSON() ([]byte, error) {
 		Name:                 o.Name,
 		Code:                 o.Code,
 		Description:          o.Description,
+		Groupbycustomfield:   o.Groupbycustomfield,
 		Instancevalues:       o.Instancevalues,
 		Maxadditionaltickets: o.Maxadditionaltickets,
 		Printtickets:         o.Printtickets,
@@ -7927,6 +7963,13 @@ type Voucher struct {
 	// * 27099: Specified from list, not autogenerated
 	Codeformatid int64 `json:"codeformatid"`
 
+	// If set, the codes that are generated are padded with this prefix. This can be
+	// used to ensure that vouchercodes are unique. The prefix can be max 10 characters
+	// long.
+	//
+	// Note: Not set when retrieving a list of vouchers.
+	Codeprefix string `json:"codeprefix"`
+
 	// Description of the voucher
 	Description string `json:"description"`
 
@@ -8059,7 +8102,7 @@ type WaitingListRequest struct {
 	// Note: Ignored when updating an existing waiting list request.
 	Id int64 `json:"id"`
 
-	// Order id
+	// The id of the order the request is converted to
 	Orderid int64 `json:"orderid"`
 
 	// Contact id
@@ -8069,7 +8112,8 @@ type WaitingListRequest struct {
 	// partial information provided and 29103 = full information provided
 	Itemsstatus int64 `json:"itemsstatus"`
 
-	// Show the status of the request, 29201 = requested, 29202 = processed
+	// Show the status of the request, 29201 = requested, 29202 = processed, 29203 =
+	// conversion in progress
 	Requeststatus int64 `json:"requeststatus"`
 
 	// The id of the saleschannel used to make the request
@@ -8085,6 +8129,13 @@ type WaitingListRequest struct {
 	//
 	// Note: Not set when retrieving a list of waiting list requests.
 	Waitinglistrequestitems []*WaitingListRequestItem `json:"waitinglistrequestitems"`
+
+	// Whether or not this item is archived
+	//
+	// Note: Ignored when creating a new waiting list request.
+	//
+	// Note: Ignored when updating an existing waiting list request.
+	Isarchived bool `json:"isarchived"`
 
 	// Created timestamp
 	//
@@ -8149,6 +8200,7 @@ func (o *WaitingListRequest) MarshalJSON() ([]byte, error) {
 		Saleschannelid          int64                     `json:"saleschannelid,omitempty"`
 		Sortorder               int64                     `json:"sortorder,omitempty"`
 		Waitinglistrequestitems []*WaitingListRequestItem `json:"waitinglistrequestitems,omitempty"`
+		Isarchived              bool                      `json:"isarchived,omitempty"`
 		Createdts               Time                      `json:"createdts,omitempty"`
 		Lastupdatets            Time                      `json:"lastupdatets,omitempty"`
 	}
@@ -8162,6 +8214,7 @@ func (o *WaitingListRequest) MarshalJSON() ([]byte, error) {
 		Saleschannelid:          o.Saleschannelid,
 		Sortorder:               o.Sortorder,
 		Waitinglistrequestitems: o.Waitinglistrequestitems,
+		Isarchived:              o.Isarchived,
 		Createdts:               o.Createdts,
 		Lastupdatets:            o.Lastupdatets,
 	}
@@ -8302,6 +8355,9 @@ type WaitingListRequestQuery struct {
 	// Filter the returned items by specifying a query on the public datamodel that
 	// returns the ids.
 	Filter string `json:"filter,omitempty"`
+
+	// If this parameter is true, archived items will be returned as well.
+	Includearchived bool `json:"includearchived,omitempty"`
 
 	// All items that were updated since this timestamp will be returned. Timestamp
 	// should be passed in YYYY-MM-DD hh:mm:ss format.
