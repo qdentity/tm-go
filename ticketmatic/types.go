@@ -3740,6 +3740,9 @@ type KeyValueItem struct {
 
 	// Value
 	Value string `json:"value"`
+
+	// Is archived
+	Isarchived bool `json:"isarchived"`
 }
 
 // The lock templates contain a mapping of which type of lock is applied to which
@@ -6496,6 +6499,9 @@ type ProductProperty struct {
 
 	// Values
 	Values []*KeyValueItem `json:"values"`
+
+	// Is archived
+	Isarchived bool `json:"isarchived"`
 }
 
 // Set of parameters used to filter products.
